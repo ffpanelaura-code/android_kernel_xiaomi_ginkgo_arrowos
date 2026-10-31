@@ -47,8 +47,8 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 ak3
           cp out/arch/arm64/boot/Image.gz-dtb ak3/ 2>/dev/null || cp out/arch/arm64/boot/Image.gz ak3/
-          sed -i -E 's|^do\.devicecheck=.*|do.devicecheck=1|; s|^device\.name1=.*|device.name1=ginkgo|; s|^device\.name2=.*|device.name2=willow|' ak3/anykernel.sh
-          sed -i -E 's|^(BLOCK|block)=.*|\1=/dev/block/bootdevice/by-name/boot;|; s|^(IS_SLOT_DEVICE|is_slot_device)=.*|\1=0;|' ak3/anykernel.sh
+          sed -i -E 's#^do\.devicecheck=.*#do.devicecheck=1#; s#^device\.name1=.*#device.name1=ginkgo#; s#^device\.name2=.*#device.name2=willow#' ak3/anykernel.sh
+          sed -i -E 's#^(BLOCK|block)=.*#\1=/dev/block/bootdevice/by-name/boot;#; s#^(IS_SLOT_DEVICE|is_slot_device)=.*#\1=0;#' ak3/anykernel.sh
           sed -i 's/abort "No ramdisk found to unpack\. Aborting\.\.\.";/echo "No ramdisk found in boot image - skipping (system-as-root device)..." >\&2;/' ak3/tools/ak3-core.sh
           grep -n "No ramdisk found" ak3/tools/ak3-core.sh
           rm -rf ak3/.git ak3/.github
