@@ -24,23 +24,6 @@ jobs:
           sed -i -E 's/-mllvm[[:space:]]+-polly[A-Za-z0-9_=-]*//g' Makefile
           grep -n "polly" Makefile || echo "no polly left in Makefile"
 
-      - name: Relax module checks
-        run: |
-          python3 - <<'EOF'
-          import re
-          p = 'kernel/module.c'
-          s = open(p).read()
-          for name in ('check_version', 'check_modstruct_version', 'same_magic'):
-              pat = re.compile(r'static (?:inline )?int ' + name + r'\([^)]*\)\s*\{')
-              found = len(pat.findall(s))
-              if found == 0:
-                  raise SystemExit('NOT FOUND: ' + name)
-              s = pat.sub(lambda m: m.group(0) + '\n\tif (1) return 1;\n', s)
-              print(name, 'patched', found)
-          open(p, 'w').write(s)
-          EOF
-          grep -n "if (1) return 1;" kernel/module.c
-
       - name: Configure
         run: |
           export PATH=$HOME/clang/bin:$PATH
@@ -48,7 +31,7 @@ jobs:
           S=scripts/config
           $S --file out/.config -d LLVM_POLLY
           make O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
-          grep -E "MODULE_SIG|MODVERSIONS|FORCE_LOAD|STACKPROTECTOR|POLLY|LOCALVERSION" out/.config
+          grep -E "MODULE_SIG|MODVERSIONS|STACKPROTECTOR|POLLY|LOCALVERSION" out/.config
 
       - name: Build
         run: |
@@ -59,14 +42,15 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu-
-          strings out/arch/arm64/boot/Image | grep -m1 "Linux version" || true
 
       - name: Package
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 ak3
           cp out/arch/arm64/boot/Image.gz-dtb ak3/ 2>/dev/null || cp out/arch/arm64/boot/Image.gz ak3/
           sed -i -E 's|^do\.devicecheck=.*|do.devicecheck=1|; s|^device\.name1=.*|device.name1=ginkgo|; s|^device\.name2=.*|device.name2=willow|' ak3/anykernel.sh
-          sed -i -E 's|^(BLOCK\|block)=.*|\1=/dev/block/bootdevice/by-name/boot;|; s|^(IS_SLOT_DEVICE\|is_slot_device)=.*|\1=0;|' ak3/anykernel.sh
+          sed -i -E 's|^(BLOCK|block)=.*|\1=/dev/block/bootdevice/by-name/boot;|; s|^(IS_SLOT_DEVICE|is_slot_device)=.*|\1=0;|' ak3/anykernel.sh
+          sed -i 's/abort "No ramdisk found to unpack\. Aborting\.\.\.";/echo "No ramdisk found in boot image - skipping (system-as-root device)..." >\&2;/' ak3/tools/ak3-core.sh
+          grep -n "No ramdisk found" ak3/tools/ak3-core.sh
           rm -rf ak3/.git ak3/.github
           cd ak3 && zip -r9 ../kernel.zip . -x ".git*"
           cp ../out/.config ../kernel_config.txt
